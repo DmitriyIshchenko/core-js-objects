@@ -319,33 +319,182 @@ function group(array, keySelector, valueSelector) {
  *  For more examples see unit tests.
  */
 
+class Selector {
+  constructor(value, selectors, builder) {
+    this.value = value;
+    this.selectors = selectors?.length ? [...selectors, this] : [this];
+    this.template = '{{value}}';
+
+    /*
+      This is my main problem with this task.
+      I can't think of any other way
+      to get methods from cssSelectorBuilder object into a class instance
+      than to pass them directly to the constructor and merge it every time.
+      If you know a better solution, please let me know :)
+    */
+    Object.assign(this, builder);
+  }
+
+  stringify() {
+    return this.selectors
+      .map((selector) => selector.template.replace('{{value}}', selector.value))
+      .join('');
+  }
+}
+
+class ElementSelector extends Selector {
+  constructor(value, prevSelectors, builder) {
+    super(value, prevSelectors, builder);
+  }
+}
+
+class IdSelector extends Selector {
+  constructor(value, prevSelectors, builder) {
+    super(value, prevSelectors, builder);
+    this.template = '#{{value}}';
+  }
+}
+
+class ClassSelector extends Selector {
+  constructor(value, prevSelectors, builder) {
+    super(value, prevSelectors, builder);
+    this.template = '.{{value}}';
+  }
+}
+
+class AttributeSelector extends Selector {
+  constructor(value, prevSelectors, builder) {
+    super(value, prevSelectors, builder);
+    this.template = '[{{value}}]';
+  }
+}
+
+class PseudoClassSelector extends Selector {
+  constructor(value, prevSelectors, builder) {
+    super(value, prevSelectors, builder);
+    this.template = ':{{value}}';
+  }
+}
+
+class PseudoElementSelector extends Selector {
+  constructor(value, prevSelectors, builder) {
+    super(value, prevSelectors, builder);
+    this.template = '::{{value}}';
+  }
+}
+
+class CombinedSelector {
+  constructor(selector1, combinator, selector2) {
+    this.combinator = combinator;
+    this.selector1 = selector1;
+    this.selector2 = selector2;
+  }
+
+  stringify() {
+    return `${this.selector1.stringify()} ${
+      this.combinator
+    } ${this.selector2.stringify()}`;
+  }
+}
+
 const cssSelectorBuilder = {
-  element(/* value */) {
-    throw new Error('Not implemented');
+  _checkIsAllowed(allowedPrevList) {
+    const lastSelector = this.selectors?.at(-1);
+    if (
+      lastSelector &&
+      !allowedPrevList.some((allowed) => lastSelector instanceof allowed)
+    )
+      throw new Error(
+        'Selector parts should be arranged in the following order: element, id, class, attribute, pseudo-class, pseudo-element'
+      );
   },
 
-  id(/* value */) {
-    throw new Error('Not implemented');
+  _checkIsUnique(constructorName) {
+    if (
+      this.selectors &&
+      this.selectors.some((selector) => selector instanceof constructorName)
+    )
+      throw new Error(
+        'Element, id and pseudo-element should not occur more then one time inside the selector'
+      );
   },
 
-  class(/* value */) {
-    throw new Error('Not implemented');
+  element(value) {
+    if (
+      this.selectors &&
+      this.selectors.some((selector) => selector instanceof ElementSelector)
+    )
+      throw new Error(
+        'Element, id and pseudo-element should not occur more then one time inside the selector'
+      );
+
+    const allowedPrevList = [];
+    const lastSelector = this.selectors?.at(-1);
+    if (
+      lastSelector &&
+      !allowedPrevList.some((allowed) => lastSelector instanceof allowed)
+    )
+      throw new Error(
+        'Selector parts should be arranged in the following order: element, id, class, attribute, pseudo-class, pseudo-element'
+      );
+    return new ElementSelector(value, [], this);
   },
 
-  attr(/* value */) {
-    throw new Error('Not implemented');
+  id(value) {
+    const allowedPrevList = [ElementSelector];
+    this._checkIsUnique(IdSelector);
+    this._checkIsAllowed(allowedPrevList);
+    return new IdSelector(value, this.selectors, cssSelectorBuilder);
   },
 
-  pseudoClass(/* value */) {
-    throw new Error('Not implemented');
+  class(value) {
+    const allowedPrevList = [ElementSelector, IdSelector, ClassSelector];
+    this._checkIsAllowed(allowedPrevList);
+
+    return new ClassSelector(value, this.selectors, cssSelectorBuilder);
   },
 
-  pseudoElement(/* value */) {
-    throw new Error('Not implemented');
+  attr(value) {
+    const allowedPrevList = [
+      ElementSelector,
+      IdSelector,
+      ClassSelector,
+      AttributeSelector,
+    ];
+    this._checkIsAllowed(allowedPrevList);
+    return new AttributeSelector(value, this.selectors, cssSelectorBuilder);
   },
 
-  combine(/* selector1, combinator, selector2 */) {
-    throw new Error('Not implemented');
+  pseudoClass(value) {
+    const allowedPrevList = [
+      ElementSelector,
+      IdSelector,
+      ClassSelector,
+      AttributeSelector,
+      PseudoClassSelector,
+    ];
+    this._checkIsAllowed(allowedPrevList);
+
+    return new PseudoClassSelector(value, this.selectors, cssSelectorBuilder);
+  },
+
+  pseudoElement(value) {
+    const allowedPrevList = [
+      ElementSelector,
+      IdSelector,
+      ClassSelector,
+      AttributeSelector,
+      PseudoClassSelector,
+      PseudoElementSelector,
+    ];
+
+    this._checkIsAllowed(allowedPrevList);
+    this._checkIsUnique(PseudoElementSelector);
+    return new PseudoElementSelector(value, this.selectors, cssSelectorBuilder);
+  },
+
+  combine(selector1, combinator, selector2) {
+    return new CombinedSelector(selector1, combinator, selector2);
   },
 };
 
