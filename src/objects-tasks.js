@@ -18,7 +18,8 @@
  *    shallowCopy({}) => {}
  */
 function shallowCopy(obj) {
-  return Object.assign({}, obj);
+  const copy = {};
+  return Object.assign(copy, obj);
 }
 
 /**
@@ -56,8 +57,9 @@ function mergeObjects(objects) {
  *
  */
 function removeProperties(obj, keys) {
-  keys.forEach((key) => delete obj[key]);
-  return obj;
+  const res = { ...obj };
+  keys.forEach((key) => delete res[key]);
+  return res;
 }
 
 /**
@@ -151,7 +153,8 @@ function sellTickets(queue) {
   const price = 25;
   const register = [];
 
-  for (let customerBill of queue) {
+  for (let i = 0; i < queue.length; i += 1) {
+    const customerBill = queue[i];
     let change = customerBill - price;
 
     register.sort((a, b) => b - a); // give away big bills first
@@ -160,7 +163,7 @@ function sellTickets(queue) {
     while (change > 0 && index < register.length) {
       if (register[index] > change) {
         // move to the next biggest bill
-        index++;
+        index += 1;
       } else {
         // remove bill from register
         change -= register[index];
@@ -191,11 +194,10 @@ function sellTickets(queue) {
 function Rectangle(width, height) {
   this.width = width;
   this.height = height;
-
-  this.getArea = function () {
-    return this.width * this.height;
-  };
 }
+Rectangle.prototype.getArea = function fn() {
+  return this.width * this.height;
+};
 
 /**
  * Returns the JSON representation of specified object
@@ -223,9 +225,9 @@ function getJSON(obj) {
  *
  */
 function fromJSON(proto, json) {
-  const obj = JSON.parse(json);
-  obj.__proto__ = proto;
-  return obj;
+  const result = Object.create(proto);
+
+  return Object.assign(result, JSON.parse(json));
 }
 
 /**
@@ -294,7 +296,7 @@ function sortCitiesArray(arr) {
  */
 function group(array, keySelector, valueSelector) {
   const map = new Map();
-  array.map((item) => {
+  array.forEach((item) => {
     const key = keySelector(item);
     const value = valueSelector(item);
 
@@ -393,7 +395,6 @@ class IdSelector extends Selector {
     this.template = '#{{value}}';
   }
 }
-
 class ClassSelector extends Selector {
   constructor(value, prevSelectors, builder) {
     super(value, prevSelectors, builder);
@@ -407,7 +408,6 @@ class AttributeSelector extends Selector {
     this.template = '[{{value}}]';
   }
 }
-
 class PseudoClassSelector extends Selector {
   constructor(value, prevSelectors, builder) {
     super(value, prevSelectors, builder);
@@ -437,7 +437,7 @@ class CombinedSelector {
 }
 
 const cssSelectorBuilder = {
-  _checkIsAllowed(allowedPrevList) {
+  checkIsAllowed(allowedPrevList) {
     const lastSelector = this.selectors?.at(-1);
     if (
       lastSelector &&
@@ -448,7 +448,7 @@ const cssSelectorBuilder = {
       );
   },
 
-  _checkIsUnique(constructorName) {
+  checkIsUnique(constructorName) {
     if (
       this.selectors &&
       this.selectors.some((selector) => selector instanceof constructorName)
@@ -481,14 +481,14 @@ const cssSelectorBuilder = {
 
   id(value) {
     const allowedPrevList = [ElementSelector];
-    this._checkIsUnique(IdSelector);
-    this._checkIsAllowed(allowedPrevList);
+    this.checkIsUnique(IdSelector);
+    this.checkIsAllowed(allowedPrevList);
     return new IdSelector(value, this.selectors, cssSelectorBuilder);
   },
 
   class(value) {
     const allowedPrevList = [ElementSelector, IdSelector, ClassSelector];
-    this._checkIsAllowed(allowedPrevList);
+    this.checkIsAllowed(allowedPrevList);
 
     return new ClassSelector(value, this.selectors, cssSelectorBuilder);
   },
@@ -500,7 +500,7 @@ const cssSelectorBuilder = {
       ClassSelector,
       AttributeSelector,
     ];
-    this._checkIsAllowed(allowedPrevList);
+    this.checkIsAllowed(allowedPrevList);
     return new AttributeSelector(value, this.selectors, cssSelectorBuilder);
   },
 
@@ -512,7 +512,7 @@ const cssSelectorBuilder = {
       AttributeSelector,
       PseudoClassSelector,
     ];
-    this._checkIsAllowed(allowedPrevList);
+    this.checkIsAllowed(allowedPrevList);
 
     return new PseudoClassSelector(value, this.selectors, cssSelectorBuilder);
   },
@@ -527,8 +527,8 @@ const cssSelectorBuilder = {
       PseudoElementSelector,
     ];
 
-    this._checkIsAllowed(allowedPrevList);
-    this._checkIsUnique(PseudoElementSelector);
+    this.checkIsAllowed(allowedPrevList);
+    this.checkIsUnique(PseudoElementSelector);
     return new PseudoElementSelector(value, this.selectors, cssSelectorBuilder);
   },
 
